@@ -1,0 +1,669 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zlib 压缩解压工具</title>
+    <!-- 引入zlib处理库 -->
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <style>
+        /* 全局样式 - 匹配樱花粉主题 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: "微软雅黑", sans-serif;
+        }
+
+        body {
+            background-color: #FFF0F5; /* 樱花粉背景 */
+            color: #333;
+            padding: 10px;
+        }
+
+        /* 主题选择区域 */
+        .theme-selector {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .theme-selector label {
+            color: #8B008B;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .theme-selector select {
+            padding: 3px 5px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            background-color: #fff;
+            color: #333;
+        }
+
+        /* 功能切换（解压/压缩） */
+        .func-switch {
+            margin-bottom: 15px;
+        }
+
+        .func-switch button {
+            padding: 6px 15px;
+            background-color: #FFB6C1;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            color: #333;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+
+        .func-switch button.active {
+            background-color: #FF6B8B;
+            color: #fff;
+            border-color: #FF6B8B;
+        }
+
+        /* 路径输入区域 */
+        .path-group {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .path-group label {
+            min-width: 80px;
+            color: #8B008B;
+            font-size: 14px;
+        }
+
+        .path-group input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            background-color: #fff;
+            height: 28px;
+        }
+
+        .path-group button {
+            padding: 5px 10px;
+            background-color: #FFB6C1;
+            border: none;
+            border-radius: 2px;
+            color: #333;
+            cursor: pointer;
+            margin-left: 5px;
+            height: 28px;
+        }
+
+        /* Unity签名输入（仅压缩显示） */
+        .signature-group {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            display: none;
+        }
+
+        .signature-group label {
+            min-width: 80px;
+            color: #8B008B;
+            font-size: 14px;
+        }
+
+        .signature-group input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            background-color: #fff;
+            height: 28px;
+        }
+
+        /* 功能按钮区域 */
+        .btn-group {
+            margin-bottom: 15px;
+        }
+
+        .btn-group button {
+            padding: 8px 30px;
+            background-color: #FF6B8B;
+            border: none;
+            border-radius: 3px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        .btn-group button:hover {
+            background-color: #FF8FA3;
+        }
+
+        /* 日志区域 */
+        .log-area {
+            border: 1px solid #ddd;
+            background-color: #fff;
+        }
+
+        .log-area label {
+            display: block;
+            padding: 5px;
+            color: #8B008B;
+            font-size: 14px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .log-text {
+            width: 100%;
+            height: 200px;
+            border: none;
+            padding: 5px;
+            resize: none;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <!-- 主题选择 -->
+    <div class="theme-selector">
+        <label for="theme-select">选择主题:</label>
+        <select id="theme-select">
+            <option value="樱花粉" selected>樱花粉</option>
+        </select>
+    </div>
+
+    <!-- 功能切换（解压/压缩） -->
+    <div class="func-switch">
+        <button id="btn-decompress" class="active">解压</button>
+        <button id="btn-compress">压缩</button>
+    </div>
+
+    <!-- 输入路径 -->
+    <div class="path-group">
+        <label>输入路径:</label>
+        <input type="text" id="input-path" placeholder="请选择文件（单次）或文件夹（批量）路径">
+        <button id="btn-browse-file">浏览文件</button>
+        <button id="btn-browse-folder">浏览文件夹</button>
+    </div>
+
+    <!-- Unity签名（仅压缩显示） -->
+    <div class="signature-group" id="signature-group">
+        <label>Unity签名:</label>
+        <input type="text" id="unity-signature" value="subway_bundles" placeholder="输入Unity签名">
+    </div>
+
+    <!-- 输出路径 -->
+    <div class="path-group">
+        <label>输出路径:</label>
+        <input type="text" id="output-path" placeholder="请选择输出文件夹路径">
+        <button id="btn-browse-output">浏览</button>
+    </div>
+
+    <!-- 功能按钮 -->
+    <div class="btn-group">
+        <button id="btn-single">单次解压</button>
+        <button id="btn-batch">批量解压</button>
+        <button id="btn-clear">清除</button>
+    </div>
+
+    <!-- 日志区域 -->
+    <div class="log-area">
+        <label>操作日志:</label>
+        <textarea class="log-text" id="log-text" readonly></textarea>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentFunc = 'decompress'; // 当前功能：decompress(解压)/compress(压缩)
+        let selectedFiles = [];         // 选中的文件列表
+        let inputPath = '';             // 输入路径（文件/文件夹）
+        let outputPath = '';            // 输出路径（文件夹名称）
+        let inputType = '';             // 输入类型：file(单个文件)/folder(文件夹)
+        let selectedDirHandle = null;   // 选中的输出文件夹句柄（FileSystem Access API）
+        let isFileSystemSupported = false; // 是否支持FileSystem Access API
+
+        // DOM元素
+        const themeSelect = document.getElementById('theme-select');
+        const btnDecompress = document.getElementById('btn-decompress');
+        const btnCompress = document.getElementById('btn-compress');
+        const inputPathInput = document.getElementById('input-path');
+        const btnBrowseFile = document.getElementById('btn-browse-file');
+        const btnBrowseFolder = document.getElementById('btn-browse-folder');
+        const signatureGroup = document.getElementById('signature-group');
+        const unitySignatureInput = document.getElementById('unity-signature');
+        const outputPathInput = document.getElementById('output-path');
+        const btnBrowseOutput = document.getElementById('btn-browse-output');
+        const btnSingle = document.getElementById('btn-single');
+        const btnBatch = document.getElementById('btn-batch');
+        const btnClear = document.getElementById('btn-clear');
+        const logText = document.getElementById('log-text');
+
+        // 初始化
+        function init() {
+            // 检测是否支持FileSystem Access API
+            isFileSystemSupported = 'showDirectoryPicker' in window;
+            setupEventListeners();
+            log(`Zlib压缩解压工具已初始化${isFileSystemSupported ? '（支持文件夹直接写入）' : '（浏览器不支持文件夹写入，将使用下载方式）'}`);
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 功能切换（解压/压缩）
+            btnDecompress.addEventListener('click', () => switchFunc('decompress'));
+            btnCompress.addEventListener('click', () => switchFunc('compress'));
+
+            // 浏览文件（单次处理用）
+            btnBrowseFile.addEventListener('click', browseFile);
+            // 浏览文件夹（批量处理用）
+            btnBrowseFolder.addEventListener('click', browseFolder);
+            // 浏览输出文件夹（新增：支持真正选择文件夹）
+            btnBrowseOutput.addEventListener('click', browseOutputFolder);
+
+            // 单次处理（仅处理单个文件）
+            btnSingle.addEventListener('click', handleSingle);
+            // 批量处理（仅处理文件夹内文件）
+            btnBatch.addEventListener('click', handleBatch);
+            // 清除
+            btnClear.addEventListener('click', clearAll);
+        }
+
+        // 切换功能（解压/压缩）
+        function switchFunc(func) {
+            currentFunc = func;
+            
+            // 更新按钮样式
+            btnDecompress.classList.toggle('active', func === 'decompress');
+            btnCompress.classList.toggle('active', func === 'compress');
+            
+            // 显示/隐藏Unity签名输入
+            signatureGroup.style.display = func === 'compress' ? 'flex' : 'none';
+            
+            // 更新按钮文字
+            btnSingle.textContent = func === 'decompress' ? '单次解压' : '单次压缩';
+            btnBatch.textContent = func === 'decompress' ? '批量解压' : '批量压缩';
+            
+            log(`切换到${func === 'decompress' ? '解压' : '压缩'}模式`);
+        }
+
+        // 浏览单个文件（仅用于单次处理）
+        function browseFile() {
+            // 创建隐藏的文件输入框
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.multiple = false; // 强制单次选一个文件
+            
+            // 过滤文件类型（解压/压缩不同）
+            if (currentFunc === 'decompress') {
+                fileInput.accept = '.bundle,.asset,.zlib,.gz';
+            }
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    selectedFiles = [file]; // 仅存单个文件
+                    inputPath = file.name;
+                    inputType = 'file'; // 标记输入类型为单个文件
+                    inputPathInput.value = file.name;
+                    log(`已选择单个文件: ${file.name}`);
+                }
+            });
+            
+            fileInput.click();
+        }
+
+        // 浏览文件夹（仅用于批量处理）
+        function browseFolder() {
+            // 创建隐藏的文件输入框，开启文件夹选择
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.multiple = true;
+            fileInput.webkitdirectory = true; // 关键：启用文件夹选择（webkit内核）
+            fileInput.dir = true; // 兼容其他浏览器
+            
+            // 过滤文件类型（解压/压缩不同）
+            if (currentFunc === 'decompress') {
+                fileInput.accept = '.bundle,.asset,.zlib,.gz';
+            }
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    selectedFiles = Array.from(e.target.files); // 文件夹内所有文件
+                    inputType = 'folder'; // 标记输入类型为文件夹
+                    // 获取文件夹名称（从第一个文件的webkitRelativePath解析）
+                    const folderPath = selectedFiles[0].webkitRelativePath.split('/')[0];
+                    inputPath = folderPath;
+                    inputPathInput.value = `文件夹: ${folderPath} (共${selectedFiles.length}个文件)`;
+                    log(`已选择文件夹: ${folderPath}，包含 ${selectedFiles.length} 个文件`);
+                }
+            });
+            
+            fileInput.click();
+        }
+
+        // 浏览输出文件夹（核心修改：支持真正选择本地文件夹）
+        async function browseOutputFolder() {
+            try {
+                if (isFileSystemSupported) {
+                    // 现代浏览器：使用FileSystem Access API选择文件夹
+                    selectedDirHandle = await window.showDirectoryPicker({
+                        mode: 'readwrite' // 读写权限
+                    });
+                    
+                    // 显示文件夹名称（尽可能获取路径）
+                    const folderName = selectedDirHandle.name || '自定义文件夹';
+                    outputPath = folderName;
+                    outputPathInput.value = `📁 ${folderName}`;
+                    log(`已选择输出文件夹: ${folderName}（支持直接写入）`);
+                } else {
+                    // 降级方案：旧浏览器使用提示框+下载方式
+                    const folderName = prompt('请输入输出文件夹名称（文件将下载到浏览器默认下载目录）:', '输出文件');
+                    if (folderName) {
+                        outputPath = folderName;
+                        outputPathInput.value = folderName;
+                        log(`已设置输出文件夹名称: ${folderName}（文件将下载到默认下载目录）`);
+                    }
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    log(`选择输出文件夹失败: ${error.message}`);
+                } else {
+                    log('已取消选择输出文件夹');
+                }
+            }
+        }
+
+        // 单次处理（仅处理单个文件）
+        async function handleSingle() {
+            // 校验：必须选了单个文件
+            if (inputType !== 'file' || selectedFiles.length !== 1) {
+                log('单次处理请先通过「浏览文件」选择单个文件！');
+                return;
+            }
+            if (!outputPath || (isFileSystemSupported && !selectedDirHandle)) {
+                log('请先选择输出文件夹！');
+                return;
+            }
+
+            const file = selectedFiles[0];
+            log(`开始${currentFunc === 'decompress' ? '解压' : '压缩'}: ${file.name}`);
+
+            try {
+                let result;
+                if (currentFunc === 'decompress') {
+                    result = await decompressFile(file);
+                    await saveFile(result.data, file.name.replace(/\.(bundle|asset|zlib|gz)$/i, ''));
+                } else {
+                    const signature = unitySignatureInput.value.trim();
+                    if (!signature) {
+                        log('请输入Unity签名');
+                        return;
+                    }
+                    result = await compressFile(file, signature);
+                    await saveFile(result.data, file.name + '.bundle');
+                }
+                log(`${currentFunc === 'decompress' ? '解压' : '压缩'}成功: ${file.name}`);
+            } catch (error) {
+                log(`${currentFunc === 'decompress' ? '解压' : '压缩'}失败: ${error.message}`);
+            }
+        }
+
+        // 批量处理（仅处理文件夹内文件）
+        async function handleBatch() {
+            // 校验：必须选了文件夹
+            if (inputType !== 'folder' || selectedFiles.length === 0) {
+                log('批量处理请先通过「浏览文件夹」选择文件夹！');
+                return;
+            }
+            if (!outputPath || (isFileSystemSupported && !selectedDirHandle)) {
+                log('请先选择输出文件夹！');
+                return;
+            }
+
+            log(`开始批量${currentFunc === 'decompress' ? '解压' : '压缩'}，共 ${selectedFiles.length} 个文件`);
+            let successCount = 0;
+
+            for (const file of selectedFiles) {
+                // 跳过文件夹内的子文件夹（只处理文件）
+                if (file.size === 0) continue;
+                
+                try {
+                    let result;
+                    let fileName;
+                    if (currentFunc === 'decompress') {
+                        result = await decompressFile(file);
+                        // 保留相对路径，避免重名
+                        fileName = file.webkitRelativePath ? 
+                            file.webkitRelativePath.replace(/\.(bundle|asset|zlib|gz)$/i, '') : 
+                            file.name.replace(/\.(bundle|asset|zlib|gz)$/i, '');
+                    } else {
+                        const signature = unitySignatureInput.value.trim();
+                        if (!signature) {
+                            log('请输入Unity签名');
+                            return;
+                        }
+                        result = await compressFile(file, signature);
+                        fileName = file.webkitRelativePath ? 
+                            `${file.webkitRelativePath}.bundle` : 
+                            `${file.name}.bundle`;
+                    }
+                    // 保存文件（支持子路径）
+                    await saveFile(result.data, fileName, true);
+                    successCount++;
+                    log(`成功${currentFunc === 'decompress' ? '解压' : '压缩'}: ${file.webkitRelativePath || file.name}`);
+                } catch (error) {
+                    log(`失败${currentFunc === 'decompress' ? '解压' : '压缩'}: ${file.webkitRelativePath || file.name} - ${error.message}`);
+                }
+            }
+
+            log(`批量${currentFunc === 'decompress' ? '解压' : '压缩'}完成：成功 ${successCount} 个，失败 ${selectedFiles.length - successCount} 个`);
+        }
+
+        // 清除所有输入
+        function clearAll() {
+            inputPathInput.value = '';
+            outputPathInput.value = '';
+            if (currentFunc === 'compress') {
+                unitySignatureInput.value = 'subway_bundles';
+            }
+            selectedFiles = [];
+            inputPath = '';
+            outputPath = '';
+            inputType = ''; // 重置输入类型
+            selectedDirHandle = null; // 重置文件夹句柄
+            logText.value = '';
+            log('已清除所有输入和日志');
+        }
+
+        // 日志功能
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logText.value += `[${timestamp}] ${message}\n`;
+            logText.scrollTop = logText.scrollHeight;
+        }
+
+        // 保存文件（核心修改：支持写入到选中的文件夹）
+        async function saveFile(data, filename, isBatch = false) {
+            try {
+                if (isFileSystemSupported && selectedDirHandle) {
+                    // 现代浏览器：直接写入到选中的文件夹（支持子文件夹）
+                    const blob = new Blob([data], { type: 'application/octet-stream' });
+                    const pathParts = filename.split('/');
+                    let currentDir = selectedDirHandle;
+
+                    // 处理子文件夹路径
+                    if (pathParts.length > 1) {
+                        for (let i = 0; i < pathParts.length - 1; i++) {
+                            const dirName = pathParts[i];
+                            try {
+                                currentDir = await currentDir.getDirectoryHandle(dirName, { create: true });
+                            } catch (e) {
+                                log(`创建子文件夹失败: ${dirName} - ${e.message}`);
+                                throw e;
+                            }
+                        }
+                        filename = pathParts[pathParts.length - 1];
+                    }
+
+                    // 写入文件
+                    const fileHandle = await currentDir.getFileHandle(filename, { create: true });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(blob);
+                    await writable.close();
+                    
+                    log(`文件已保存到输出文件夹: ${filename}`);
+                } else {
+                    // 降级方案：旧浏览器使用下载方式
+                    const blob = new Blob([data], { type: 'application/octet-stream' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = isBatch ? `${outputPath}_${filename}` : filename;
+                    a.click();
+                    
+                    // 释放URL
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                    log(`文件已下载: ${a.download}`);
+                }
+            } catch (error) {
+                log(`保存文件失败: ${filename} - ${error.message}`);
+                throw error;
+            }
+        }
+
+        // ========== 核心：读取Unity格式字符串（7-bit编码长度前缀） ==========
+        function readUnityString(view, offset) {
+            let length = 0;
+            let shift = 0;
+            let currentOffset = offset;
+
+            while (true) {
+                const b = view.getUint8(currentOffset);
+                currentOffset++;
+                
+                length |= (b & 0x7F) << shift;
+                
+                if ((b & 0x80) === 0) break;
+                shift += 7;
+                if (shift > 35) throw new Error('无效的Unity字符串格式');
+            }
+
+            const strBytes = new Uint8Array(view.buffer, currentOffset, length);
+            currentOffset += length;
+            const decoder = new TextDecoder('utf-8');
+            const str = decoder.decode(strBytes);
+            
+            return { str, newOffset: currentOffset };
+        }
+
+        // ========== 核心：写入Unity格式字符串 ==========
+        function writeUnityString(str) {
+            const encoder = new TextEncoder('utf-8');
+            const strBytes = encoder.encode(str);
+            const length = strBytes.length;
+            
+            const lengthBytes = [];
+            let len = length;
+            while (len > 0x7F) {
+                lengthBytes.push((len & 0x7F) | 0x80);
+                len >>= 7;
+            }
+            lengthBytes.push(len);
+            
+            return new Uint8Array([...lengthBytes, ...strBytes]);
+        }
+
+        // ========== 核心：Unity格式Zlib解压 ==========
+        function decompressFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const arrayBuffer = e.target.result;
+                        const view = new DataView(arrayBuffer);
+                        let offset = 0;
+
+                        // 1. 读取Unity签名字符串
+                        const { str: signature, newOffset } = readUnityString(view, offset);
+                        offset = newOffset;
+
+                        // 2. 读取原始大小（4字节小端整数）
+                        const originalSize = view.getInt32(offset, true);
+                        offset += 4;
+
+                        // 3. 读取压缩数据并解压
+                        const compressedData = new Uint8Array(arrayBuffer, offset);
+                        const decompressed = pako.inflate(compressedData, { windowBits: -15 });
+
+                        // 验证大小
+                        if (decompressed.length !== originalSize) {
+                            throw new Error(`解压大小不匹配：实际${decompressed.length}，预期${originalSize}`);
+                        }
+
+                        resolve({
+                            filename: file.name,
+                            data: decompressed,
+                            signature: signature
+                        });
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                
+                reader.onerror = () => reject(new Error('文件读取错误'));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // ========== 核心：Unity格式Zlib压缩 ==========
+        function compressFile(file, signature) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const arrayBuffer = e.target.result;
+                        const data = new Uint8Array(arrayBuffer);
+                        const originalSize = data.length;
+
+                        // 1. 压缩数据
+                        const compressedData = pako.deflate(data, { level: 9, windowBits: -15 });
+
+                        // 2. 生成Unity签名字节
+                        const signatureBytes = writeUnityString(signature);
+
+                        // 3. 生成原始大小字节（4字节小端）
+                        const sizeBuffer = new ArrayBuffer(4);
+                        const sizeView = new DataView(sizeBuffer);
+                        sizeView.setInt32(0, originalSize, true);
+                        const sizeBytes = new Uint8Array(sizeBuffer);
+
+                        // 4. 合并所有数据
+                        const resultData = new Uint8Array([
+                            ...signatureBytes,
+                            ...sizeBytes,
+                            ...compressedData
+                        ]);
+
+                        resolve({
+                            filename: file.name,
+                            data: resultData
+                        });
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                
+                reader.onerror = () => reject(new Error('文件读取错误'));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // 初始化应用
+        init();
+    </script>
+</body>
+</html>
